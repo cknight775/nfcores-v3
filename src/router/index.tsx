@@ -4,6 +4,10 @@ import { AuthGuard } from '@/components/guards/AuthGuard';
 import { PublicLayout } from '@/components/layout/PublicLayout';
 import { AuthLayout } from '@/components/layout/AuthLayout';
 
+// ⚠️ CRÍTICO: Importación directa (NO lazy) para página de emergencia
+// Esta página DEBE cargar en <2 segundos porque puede SALVAR VIDAS
+import PerfilPublico from '@/pages/PerfilPublico';
+
 // Lazy loading para rutas no críticas
 const HomePage = React.lazy(() => import('@/pages/public/HomePage'));
 const LoginPage = React.lazy(() => import('@/pages/auth/LoginPage'));
@@ -31,6 +35,13 @@ const DashboardLayout = () => (
 );
 
 export const router = createBrowserRouter([
+  // 🚨 RUTA CRÍTICA DE EMERGENCIA - Sin layout, sin lazy loading
+  // DEBE cargar en <2 segundos - puede SALVAR VIDAS
+  {
+    path: '/id/:token',
+    element: <PerfilPublico />,
+  },
+
   // Rutas públicas (con layout completo)
   {
     path: '/',
