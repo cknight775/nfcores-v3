@@ -1,0 +1,93 @@
+{
+  "profileId": "test_profile_001",
+  "userId": "user_test_001",
+  "webId": "TEST12345",
+  "panelId": "",
+  "firstName": "Juan",
+  "lastName": "Pérez",
+  "fullName": "Juan Pérez García",
+  "birthDate": {
+    "_seconds": 479520000,
+    "_nanoseconds": 0
+  },
+  "bloodType": "O+",
+  "photoURL": "",
+  "allergies": [
+    {
+      "name": "Penicilina",
+      "severity": "grave",
+      "notes": "Anafilaxia - NO ADMINISTRAR"
+    },
+    {
+      "name": "Maní",
+      "severity": "moderada",
+      "notes": "Reacción cutánea y dificultad respiratoria"
+    },
+    {
+      "name": "Polen",
+      "severity": "leve",
+      "notes": "Estornudos y ojos llorosos"
+    }
+  ],
+  "medications": [
+    {
+      "name": "Losartán",
+      "dosage": "50mg",
+      "frequency": "1 vez al día (mañana)",
+      "reason": "Hipertensión arterial"
+    },
+    {
+      "name": "Metformina",
+      "dosage": "850mg",
+      "frequency": "2 veces al día",
+      "reason": "Diabetes Tipo 2"
+    }
+  ],
+  "medicalConditions": [
+    "Hipertensión arterial",
+    "Diabetes Tipo 2",
+    "Asma leve"
+  ],
+  "emergencyContacts": [
+    {
+      "name": "María González",
+      "phone": "+56912345678",
+      "email": "maria.gonzalez@gmail.com",
+      "relationship": "Esposa",
+      "priority": 1,
+      "notifyOnAccess": true
+    },
+    {
+      "name": "Pedro Pérez",
+      "phone": "+56987654321",
+      "email": "pedro.perez@gmail.com",
+      "relationship": "Hijo",
+      "priority": 2,
+      "notifyOnAccess": true
+    },
+    {
+      "name": "Dr. Carlos Muñoz",
+      "phone": "+56922334455",
+      "email": "dr.munoz@hospital.cl",
+      "relationship": "Médico de cabecera",
+      "priority": 3,
+      "notifyOnAccess": false
+    }
+  ],
+  "emergencyNotes": "Propenso a hipoglucemia. Siempre llevo caramelos en bolsillo derecho del pantalón. En caso de confusión o sudoración excesiva, dar algo dulce inmediatamente.",
+  "documents": [],
+  "privacySettings": {
+    "showPhoto": true,
+    "showFullName": true,
+    "showMedications": true,
+    "showConditions": true,
+    "showDocuments": true,
+    "showEmergencyNotes": true,
+    "maxContactsVisible": 3,
+    "enableGeolocation": true
+  },
+  "isActive": true,
+  "isPublic": true,
+  "totalAccesses": 0,
+  "lastAccessedAt": null
+}
