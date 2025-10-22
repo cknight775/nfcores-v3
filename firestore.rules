@@ -1,0 +1,271 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function hasRole(role) {
+      return isAuthenticated() && request.auth.token.role == role;
+    }
+    
+    function isAdmin() {
+      return hasRole('admin') || hasRole('super_admin');
+    }
+    
+    function isSuperAdmin() {
+      return hasRole('super_admin');
+    }
+    
+    function isModerator() {
+      return hasRole('moderator') || isAdmin();
+    }
+    
+    function isContentEditor() {
+      return hasRole('content_editor') || isAdmin();
+    }
+    
+    function isPanelAdmin(panelId) {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/familyPanels/$(panelId)) &&
+         request.auth.uid in get(/databases/$(database)/documents/familyPanels/$(panelId)).data.adminIds) ||
+        (exists(/databases/$(database)/documents/enterprisePanels/$(panelId)) &&
+         request.auth.uid in get(/databases/$(database)/documents/enterprisePanels/$(panelId)).data.adminIds)
+      );
+    }
+    
+    function isPanelMember(panelId) {
+      return isAuthenticated() && (
+        (exists(/databases/$(database)/documents/familyPanels/$(panelId)) &&
+         request.auth.uid in get(/databases/$(database)/documents/familyPanels/$(panelId)).data.memberIds) ||
+        (exists(/databases/$(database)/documents/enterprisePanels/$(panelId)) &&
+         request.auth.uid in get(/databases/$(database)/documents/enterprisePanels/$(panelId)).data.employeeIds)
+      );
+    }
+    
+    // ============================================
+    // USERS COLLECTION
+    // ============================================
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // EMERGENCY PROFILES COLLECTION
+    // ⚠️ CRÍTICO: Acceso público para emergencias
+    // ============================================
+    match /emergencyProfiles/{profileId} {
+      // ✅ Lectura PÚBLICA para emergencias (sin autenticación)
+      allow read: if true;
+      
+      // Escritura solo para el owner o admins
+      allow create: if isAuthenticated() && isOwner(resource.data.userId);
+      allow update: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      allow delete: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+    }
+    
+    // ============================================
+    // WEBIDS COLLECTION
+    // ============================================
+    match /webIds/{webIdCode} {
+      // Lectura solo para owner y admins
+      allow read: if isAuthenticated() && (
+        isOwner(resource.data.userId) || 
+        isAdmin() ||
+        (resource.data.panelId != null && isPanelAdmin(resource.data.panelId))
+      );
+      
+      // Creación y modificación solo por admins
+      allow create: if isAdmin();
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // FAMILY PANELS COLLECTION
+    // ============================================
+    match /familyPanels/{panelId} {
+      // Lectura para miembros y admins del panel
+      allow read: if isAuthenticated() && (
+        isPanelMember(panelId) || 
+        isPanelAdmin(panelId) || 
+        isAdmin()
+      );
+      
+      // Escritura solo para admins del panel o super admins
+      allow create: if isAuthenticated() && isOwner(request.resource.data.ownerId);
+      allow update: if isAuthenticated() && (isPanelAdmin(panelId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // ENTERPRISE PANELS COLLECTION
+    // ============================================
+    match /enterprisePanels/{panelId} {
+      // Lectura para empleados y admins del panel
+      allow read: if isAuthenticated() && (
+        isPanelMember(panelId) || 
+        isPanelAdmin(panelId) || 
+        isAdmin()
+      );
+      
+      // Escritura solo para admins del panel o super admins
+      allow create: if isAuthenticated() && isOwner(request.resource.data.ownerId);
+      allow update: if isAuthenticated() && (isPanelAdmin(panelId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // ORDERS COLLECTION
+    // ============================================
+    match /orders/{orderId} {
+      // Lectura para el owner y admins
+      allow read: if isAuthenticated() && (isOwner(resource.data.userId) || isAdmin());
+      
+      // Creación por usuarios autenticados
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      
+      // Actualización solo por admins (estados de pago, envío)
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // COUPONS COLLECTION
+    // ============================================
+    match /coupons/{couponId} {
+      // Lectura pública (para validar cupones)
+      allow read: if true;
+      
+      // Escritura solo admins
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ============================================
+    // ACCESS LOGS COLLECTION
+    // ============================================
+    match /accessLogs/{logId} {
+      // Creación pública (emergencias sin auth)
+      allow create: if true;
+      
+      // Lectura solo para el owner del perfil y admins
+      allow read: if isAuthenticated() && (
+        isOwner(resource.data.userId) || 
+        isAdmin()
+      );
+      
+      // No se permite modificar o borrar logs
+      allow update, delete: if false;
+    }
+    
+    // ============================================
+    // NOTIFICATIONS COLLECTION
+    // ============================================
+    match /notifications/{notificationId} {
+      // Lectura y escritura solo para el usuario owner
+      allow read, write: if isAuthenticated() && isOwner(resource.data.userId);
+      
+      // Admins pueden crear notificaciones
+      allow create: if isAdmin();
+    }
+    
+    // ============================================
+    // SUPPORT TICKETS COLLECTION
+    // ============================================
+    match /supportTickets/{ticketId} {
+      // Lectura para el owner, moderators y admins
+      allow read: if isAuthenticated() && (
+        isOwner(resource.data.userId) || 
+        isModerator() || 
+        isAdmin()
+      );
+      
+      // Creación por usuarios autenticados
+      allow create: if isAuthenticated() && isOwner(request.resource.data.userId);
+      
+      // Actualización por owner (mensajes) o moderators (estado)
+      allow update: if isAuthenticated() && (
+        isOwner(resource.data.userId) || 
+        isModerator()
+      );
+      
+      // Solo admins pueden borrar
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // AUDIT LOGS COLLECTION
+    // Solo lectura para super_admin
+    // ============================================
+    match /auditLogs/{logId} {
+      allow read: if isSuperAdmin();
+      allow create: if isAdmin(); // Los admins pueden crear logs
+      allow update, delete: if false; // Logs inmutables
+    }
+    
+    // ============================================
+    // SYSTEM CONFIG COLLECTION
+    // ============================================
+    match /systemConfig/{configId} {
+      // Lectura para admins
+      allow read: if isAdmin();
+      
+      // Escritura solo para super_admin
+      allow create, update, delete: if isSuperAdmin();
+    }
+    
+    // ============================================
+    // EMAIL TEMPLATES COLLECTION
+    // ============================================
+    match /emailTemplates/{templateId} {
+      // Lectura y escritura solo para admins
+      allow read: if isAdmin();
+      allow create, update, delete: if isAdmin();
+    }
+    
+    // ============================================
+    // FAQS COLLECTION
+    // ============================================
+    match /faqs/{faqId} {
+      // Lectura pública si isPublic = true
+      allow read: if resource.data.isPublic == true || isAdmin();
+      
+      // Escritura solo para content_editor y admins
+      allow create, update, delete: if isContentEditor();
+    }
+    
+    // ============================================
+    // TESTIMONIALS COLLECTION
+    // ============================================
+    match /testimonials/{testimonialId} {
+      // Lectura pública si isPublic = true
+      allow read: if resource.data.isPublic == true || isAdmin();
+      
+      // Escritura solo para content_editor y admins
+      allow create, update, delete: if isContentEditor();
+    }
+    
+    // ============================================
+    // PARTNERS COLLECTION
+    // ============================================
+    match /partners/{partnerId} {
+      // Lectura pública si isActive = true
+      allow read: if resource.data.isActive == true || isAdmin();
+      
+      // Escritura solo para admins
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

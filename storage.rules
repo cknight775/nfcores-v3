@@ -1,0 +1,167 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // ============================================
+    // HELPER FUNCTIONS
+    // ============================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function hasRole(role) {
+      return request.auth != null && request.auth.token.role == role;
+    }
+    
+    function isAdmin() {
+      return hasRole('admin') || hasRole('super_admin');
+    }
+    
+    function isSuperAdmin() {
+      return hasRole('super_admin');
+    }
+    
+    function isValidFileSize(maxMB) {
+      return request.resource.size < maxMB * 1024 * 1024;
+    }
+    
+    function isValidImageType() {
+      return request.resource.contentType.matches('image/.*');
+    }
+    
+    function isValidDocumentType() {
+      return request.resource.contentType.matches('application/pdf') ||
+             request.resource.contentType.matches('image/.*');
+    }
+    
+    // ============================================
+    // MEDICAL DOCUMENTS
+    // Límites por pack:
+    // - Individual: 5MB por archivo, 50MB total
+    // - Familiar: 5MB por archivo, 200MB total
+    // - Empresarial: 10MB por archivo, 5GB total
+    // ============================================
+    match /documents/{userId}/{documentId} {
+      // Lectura solo para el owner y admins
+      allow read: if isAuthenticated() && (isOwner(userId) || isAdmin());
+      
+      // Escritura solo para el owner con límite de tamaño
+      // Máximo 10MB (límite empresarial, más estricto en app)
+      allow write: if isAuthenticated() && 
+                      isOwner(userId) && 
+                      isValidDocumentType() &&
+                      isValidFileSize(10);
+      
+      // Borrado solo para el owner y admins
+      allow delete: if isAuthenticated() && (isOwner(userId) || isAdmin());
+    }
+    
+    // ============================================
+    // PROFILE PHOTOS
+    // Máximo 2MB por foto
+    // ============================================
+    match /photos/{userId}/{photoId} {
+      // Lectura pública (fotos de perfil en emergencias)
+      allow read: if true;
+      
+      // Escritura solo para el owner
+      allow write: if isAuthenticated() && 
+                      isOwner(userId) && 
+                      isValidImageType() &&
+                      isValidFileSize(2);
+      
+      // Borrado solo para el owner y admins
+      allow delete: if isAuthenticated() && (isOwner(userId) || isAdmin());
+    }
+    
+    // ============================================
+    // EMERGENCY PROFILE PHOTOS
+    // Fotos públicas de perfiles de emergencia
+    // ============================================
+    match /emergency-photos/{profileId} {
+      // Lectura pública
+      allow read: if true;
+      
+      // Escritura solo para usuarios autenticados
+      allow write: if isAuthenticated() && 
+                      isValidImageType() &&
+                      isValidFileSize(2);
+      
+      // Borrado solo para admins
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // BRANDING & ASSETS
+    // Logos, banners, etc. (solo admins)
+    // ============================================
+    match /branding/{file} {
+      // Lectura pública
+      allow read: if true;
+      
+      // Escritura solo para super_admin
+      allow write: if isSuperAdmin() && isValidFileSize(5);
+      
+      // Borrado solo para super_admin
+      allow delete: if isSuperAdmin();
+    }
+    
+    // ============================================
+    // CONTENT IMAGES
+    // Imágenes para FAQs, testimonios, partners
+    // ============================================
+    match /content/{category}/{fileId} {
+      // Lectura pública
+      allow read: if true;
+      
+      // Escritura solo para admins y content_editor
+      allow write: if (hasRole('content_editor') || isAdmin()) && 
+                      isValidImageType() &&
+                      isValidFileSize(3);
+      
+      // Borrado solo para admins
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // SUPPORT TICKETS ATTACHMENTS
+    // Archivos adjuntos en tickets de soporte
+    // ============================================
+    match /support-attachments/{ticketId}/{fileId} {
+      // Lectura solo para el owner del ticket y moderators/admins
+      allow read: if isAuthenticated() && (
+        hasRole('moderator') || 
+        isAdmin()
+      );
+      
+      // Escritura solo para usuarios autenticados
+      allow write: if isAuthenticated() && 
+                      isValidFileSize(5);
+      
+      // Borrado solo para admins
+      allow delete: if isAdmin();
+    }
+    
+    // ============================================
+    // TEMPORARY UPLOADS
+    // Archivos temporales durante el upload
+    // ============================================
+    match /temp/{userId}/{fileId} {
+      // Lectura solo para el owner
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // Escritura solo para el owner
+      allow write: if isAuthenticated() && 
+                      isOwner(userId) && 
+                      isValidFileSize(10);
+      
+      // Borrado automático después de 24hrs (configurar en Cloud Functions)
+      allow delete: if isAuthenticated() && (isOwner(userId) || isAdmin());
+    }
+  }
+}
