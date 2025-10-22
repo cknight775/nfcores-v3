@@ -14,24 +14,50 @@ export type PackType = 'individual' | 'familiar' | 'empresarial';
 export interface User {
   uid: string;
   email: string;
-  role: SystemRole;
-  profileType: ProfileType;
-  packType: PackType;
-  displayName: string | null;
-  photoURL: string | null;
   emailVerified: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  lastLogin: Date | null;
   
-  // Pack específico
+  // Información Personal
+  firstName: string;
+  lastName: string;
+  fullName: string;
+  phone?: string;
+  photoURL?: string;
+  
+  // ROLES DEL SISTEMA (Permisos técnicos)
+  role: SystemRole;
+  
+  // TIPO DE PERFIL (Contexto de negocio)
+  profileType: ProfileType;
+  
+  // Pack y Suscripción
+  hasActiveSubscription: boolean;
+  subscriptionExpiresAt?: Date;
+  
+  pack?: {
+    type: PackType;
+    purchaseDate: Date;
+    expirationDate: Date;
+    webIdsAllocated: number;
+    webIdsUsed: number;
+    status: 'active' | 'expired' | 'cancelled';
+  };
+  
+  // WebID Principal (para usuarios individuales)
+  webId?: string; // "ABC123XYZ"
+  
+  // Panel (para usuarios familiares/empresariales)
   panelId?: string; // "FAM-00001" | "EMP-00001"
-  webIdCode?: string; // "ABC123XYZ" (9 caracteres)
+  
+  // Admin Delegado (solo para miembros de panel)
+  isAdmin?: boolean;
+  delegatedBy?: string;
+  delegatedAt?: Date;
   
   // Metadata
+  createdAt: Date;
+  updatedAt: Date;
+  lastLogin?: Date;
   isActive: boolean;
-  subscriptionStatus: 'active' | 'expired' | 'cancelled';
-  subscriptionEndDate: Date | null;
 }
 
 export interface UserProfile {
